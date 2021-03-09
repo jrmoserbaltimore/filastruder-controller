@@ -12,8 +12,8 @@ from numpy import Polynomial
 def main():
     # Onboard LED, for feedback
     led = machine.Pin(25, machine.Pin.OUT)
-    # ADC 0 on GP26
-    hall_sensor = machine.ADC(26)
+    # ADC 0 on GP27, adjacent to AGND
+    hall_sensor = machine.ADC(27)
     # I2C0 using pins 0 and 1.  Address is 43
     i2c = machine.I2C(0, sda=machine.Pin(0), scl=machine.Pin(1), freq=400000)
 
