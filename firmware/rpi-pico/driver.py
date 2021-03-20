@@ -1,6 +1,6 @@
 # Firmware for hall-sensor based filament diameter sensors.
 # Reads analog value from the sensor and provides a mapped and filtered diameter
-# reading over I2C (optional analog output)
+# reading over I2C or UART
 # Runs on Raspberry Pi Pico ($4)
 # Licensed CC-0 / Public Domain by John Moser
 #
@@ -8,6 +8,20 @@
 #  - Main loop:  block on i2c
 #  - LED:  sleep_ms() or block on q.get()
 #  - sensor:  sleep_us(1); might be able to reduce this to event-driven
+#
+# Communications have the following aspects:
+#  - Numbers are unsigned fixed-point 24-bit, using 10 bits for the
+#    fraction.  This gives 1/1024, which can be rounded to represent three
+#    decimal places.  The range is 0 to 16383.(1023/1024)
+#  - Communications over UART are Reed-Solomon coded.
+#
+# Note the ADC is noisy and has a resolution of about 7.85 bits[1] in the
+# initial RPi Pico release.  All readings from the ADC are MSB-aligned:
+# padding to 14 bits is added as the least-significant bits of the reading.
+# There is no practical difference between 14/10 fixed-point and a 24-bit
+# integer for the calculations here, so a special case is not made.
+#
+# [1] https://pico-adc.markomo.me/
 
 from machine import Pin, ADC, I2C
 from utime import sleep_ms, sleep_us
@@ -16,6 +30,7 @@ from numpy.polynomial.polynomial import Polynomial
 from numpy import mean
 from queue import Queue
 from threading import Thread
+from unireedsolomon import RSCoder
 #import _thread
 
 # LED states
@@ -63,6 +78,9 @@ def init():
     # FIXME:  Make address configurable
     i2c = machine.I2C(0, sda=machine.Pin(0), scl=machine.Pin(1), freq=400000)
     i2c.init(I2C.SLAVE, addr=43)
+    
+    # TODO:  Initialize the Reed-Solomon encoder here
+    # TOOD:  Initialize with UART
     
     # ADC 0 on GP27, adjacent to AGND
     hall_sensor = machine.ADC(27)
@@ -112,7 +130,10 @@ def sensor_task(hall_sensor, q, qo):
     # and then set a counter and loop to get the 50 readings.
     # This reduces power usage.
     while True:
-        readings.append(hall_sensor.read_u16())
+        # 12-bit ADC readings are left-aligned to 24 bits, then
+        # reduced to 8-bit resolution.
+        # FIXME:  Parameterize this
+        readings.append((hall_sensor.read_u16() << 12) & 0xf00)
         if readings.len() > ma_length: readings.pop(0)
         sleep_us(1)
         # If there's anything in q, send a reading to qo
