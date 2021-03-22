@@ -1,0 +1,122 @@
+# Pi Pico firmware
+
+The firmware here controls both the Filastruder and the Filawinder.
+
+Because the Pico can take instructions over UART, one can control the
+other, or a Pi Zero can control both.  This allows for placing controls
+only on the Filawinder, or controlling via a Pi Zero instead of a front
+panel.
+
+# Filastruder controller
+
+The Filastruder controller provides several functions.
+
+## BOM
+
+
+## Main Panel
+
+I2C on `GP0` and `GP1` control the display.
+
+Several buttons are provided:
+
+* `GP10` and `GP11`:  Up and down (rotary encoder)
+* `GP12`:  Select (push-button on rotary encoder)
+
+The display allows menu selection for heater and motor control,
+extrusion profile, serial port control, and other configuration.  It
+also displays statistics.
+
+### Serial LCD
+
+Preferred display is a 128x160 ST7735 module at 1.8 inch.  These cost
+some $5.
+
+Alternately, a $6 2.4 inch 240x320 ILI93 module works as well.
+
+## PID Controller
+
+The PID controller uses `ADC 2` and `ADC_VREF` on `GP28` and pin 35 to
+measure the thermistor on the barrel, and `PWM 3` on `GP6` and `GP7` to
+drive the heater via a MOSFET.
+
+This PID controller has an adaptive tuning mode, using data collected
+during operation rather than during a tuning cycle.
+
+## Motor Controller
+
+The motor controller uses `PWM 4` on `GP8` and `GP9` to drive a MOSFET
+driving the motor.  It sets motor speed via configuration.
+
+## Serial Controller
+
+`UART 0` on `GP16` and `GP17` provides bidirectional communication
+between the Filastruder and Filawinder, or between both and a Pi Zero.
+This allows remote and automated control of the Filastruder.
+
+Serial communications use Reed-Solomon coding with a high degree of
+redundancy to deal with an unreliable link.
+
+### Closed-Loop Control
+
+When the Filastruder and Filawinder both supply data, the Pi Pico or a
+Pi Zero can analyze this and instruct one or both to make adjustments.
+The Filawinder handles this if a Zero is not used, as it requires a
+filament diameter sensor, which requires the filament to be drawn
+mechanically at a controlled rate.
+
+# Filawinder Controller
+
+## BOM
+
+* 1 Pi Pico ($4)
+* 1 DRV8833 2-channel motor controller board ($0.56 ea)
+* 1 Rotary Encoder module with switch ($0.90 ea)
+* 1 ADS1115 I2C module ($1.73)
+* 1 1.8 inch ST7735 TFT module ($3.39)
+  * Alternative: 1602 16x2 character display ($1.75)
+* 1 0.125 ohm 1/2 watt or better resistor ($0.03)
+
+Total: $10.05
+
+### Photosensor
+
+The laser and sensor board are required, although the sensor is four
+analog outputs using resistors.  Tying each of these to a resistor and
+capacitor creates a digital signal, but not necessarily effective.
+
+Instead, a cheap I2C ADS module is used.  This provides signal for as
+much as 1-2 meters of cable length.
+
+### Control board
+
+The control board, a Pi Pico, is in the diameter sensor.  A modified
+control case guides the filament through the sensor, out into the PTFE
+tube, which loops back around and into the guide as normal.
+
+This uses one ADC on the Pico.
+
+## Main Panel
+
+I2C on `GP0` and `GP1` control the display.
+
+Several buttons are provided:
+
+* `GP10` and `GP11`:  Up and down (rotary encoder)
+* `GP12`:  Select (push-button on rotary encoder)
+
+The display allows menu selection for motor control, filament guide
+setup, target diameter, serial port control, and other configuration.
+It also displays statistics.
+
+### Control mapping
+
+The controls change in this layout.  A software menu provides maunal
+or auto mode, as well as servo position and range setup.  The rotary
+encoder controls this.
+
+* Manual/Auto switch:  Software menu
+* Servo position and range:  Software menu
+  * Setup walks through first adjusting servo position, press button,
+    adjust to end position, press button
+
